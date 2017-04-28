@@ -1,0 +1,81 @@
+#!/bin/bash
+COMPILER=0
+LINKER=0
+STRIP=0
+compilerOptions=""
+verboseDefault="-DVERBOSE_LOGGING=0"
+linkerOptions=""
+
+function synopsis {
+	echo  "synopsis"
+	exit
+}
+
+function compile {
+	echo "$compilerOptions"
+	if $(grep -q "\-DVERBOSE_LOGGING" <<< "$compilerOptions");then
+		echo "entered if"
+		gcc -c main.c helper.c  $compilerOptions
+	else
+		gcc -c main.c helper.c $verboseDefault $compilerOptions
+	fi
+	
+}
+
+function link {
+	echo "linking $linkingOptions"
+	gcc -o main main.o helper.o -lm
+}
+
+function stripExec {
+	echo "stripping"
+	strip "main"
+}
+
+OPT=$(getopt -n "builder" -o "c:,l:,h,s" -l "compiler:,linker:,help,strip" -- "$@")
+
+
+eval set -- "$OPT"
+
+echo "$@"
+
+while [ "$1" != "--" ]; do
+	case "$1" in 
+	-c|--compiler)
+		echo "compiler"
+		COMPILER=1
+		compilerOptions="$2"
+		shift
+		;;
+	-l|--linker)
+		echo "linker"
+		LINKER=1
+		linkerOptions="$2"
+		shift
+		;;
+	-h|--help)
+		synopsis
+		;;
+	-s|--strip)
+		STRIP=1
+		;;
+	*)
+		echo "Invalid Arguments"
+		exit 1
+		;;
+	esac
+
+	shift
+done
+
+if [ $COMPILER -eq 1 ] ;then
+	compile
+fi
+
+if [ $LINKER -eq 1 ] ; then
+	link
+fi
+
+if [ $STRIP -eq 1 ] ;then
+	stripExec
+fi

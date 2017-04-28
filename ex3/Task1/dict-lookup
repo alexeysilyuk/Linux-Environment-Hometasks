@@ -1,0 +1,119 @@
+#!/bin/bash
+
+#Paramater Switches:
+#----
+
+w=0 #Word provided flag
+d=0 #Dictionary provided flag
+
+h=0 # Help option was activated, will show synopsis
+q=0 # Quiet option was activated, will not show errors
+error=0 # Error exit status
+dictionary=$DICTIONARY  #default dictionary if -d was not provided is $DICTIONARY
+path="${0%/*}"
+
+##Using getopt to convert paramaters appropriately:
+
+
+OPT=$(getopt -n "dict-lookup" -o "h,q,w:,d:" -l "help,quiet,word,dict" -- "$@")
+eval set -- "$OPT"
+
+while [ $1 != "--" ] ; do
+	
+	case "$1" in 
+		-h|--help)
+			h=1
+			;;
+
+		-q|--quiet)
+			q=1
+			;;
+
+		-w|--word)
+			w=1
+			word="$2"
+			shift
+			;;
+
+		-d|--dict)
+			d=1
+			dictionary="$path"/"$2"
+			shift
+			;;
+	esac
+	shift
+done
+
+if ! [ -z "$2" ]; then
+	echo "dict-lookup: unknown extra arguments : "$2""
+	exit 1
+fi
+
+# If Chosen to see a synopsis prints it and exits:
+
+if [ "$h" -eq 1 ]; then
+	echo   "Usage:
+-------
+  dict-lookup [OPTION...] [FILE...]
+  Prints translation of a word  [OPTION..] from dict [FILE..]
+
+Help Options:
+-------------
+  -h ,--help    Show help options
+  
+Application Options:
+--------------------
+  -q ,--quiet		Quiet run
+  -w ,--word <param>	A word param to search
+  -d ,--dict <param>	A dictionary input(global env DICTIONARY as default)
+  		-in case of filename that contains spaces or special symbols, use ' ' , i.ex : 'my file!' as dictionary parameter
+  --			Stops special treatment of --	
+
+Examples:
+---------
+dict-lookup -q -d dict -w dog	Output dog's translation from dict dictionary(error is not shown if dict is inaccessible or dog wasn't found).
+dict-lookup -h			Output a synopsis. 
+dict-lookup -w dog -qh		Output a synopsis."
+
+	exit 0
+fi
+
+if [ "$w" -eq 0 ]||[ -z "$word" ]; then
+	echo "dict-lookup: Word must be provided to search for in the dictionary"
+	exit 1
+fi
+
+
+if [ "$d" -eq 0 ] && [ -z "$dictionary" ]; then
+	echo "dict-lookup: Blank dictionary provided"
+	echo "dict-lookup: Dictionary must be provided as an environment variable or as a paramter"
+	exit 1
+fi
+
+#Trying to find the translation of the word to get grep's error status
+
+
+grep "^${word}:" "$dictionary" &>/dev/null
+error="$?"
+
+#Printing translation based on Quiet option
+if [ "$q" -eq 1 ]; then
+	grep "^${word}:" "$dictionary" 2>/dev/null | cut -d ":" -f2 2>/dev/null
+	exit "$error"
+else
+
+
+	if [ "$error" -eq 1 ]; then
+		echo "dict-lookup: "${word}" was not found in dictionary: "${dictionary}""
+		exit "$error"
+	fi
+
+	if [ "$error" -eq 2 ]; then
+		echo "dict-lookup: "${dictionary}" was not found"
+		exit "$error"
+	fi
+
+	result=$( grep "^${word}:" "$dictionary" )
+	echo "$result" | cut -d ":" -f2
+fi
+

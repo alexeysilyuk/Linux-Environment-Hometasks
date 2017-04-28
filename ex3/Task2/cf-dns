@@ -1,0 +1,275 @@
+#!/bin/bash 
+set -e
+OPT=$(getopt -n "cf-dns" -o "h,q,c:,g:,t:,u:,v:" -l "help,quiet,credentials:,get:,type:,update:,value:" -- "$@")
+
+eval set -- "$OPT"
+h=0
+g=0
+u=0
+c=0
+v=0
+q=0
+
+export CF_CREDENTIALS=yourmain@gmail.com:YOURAPIKEY
+creds="$CF_CREDENTIALS"
+
+
+#check if value parameter been received from user
+function check_value(){
+if [ "$v" != 1 ]; then
+	if ! [ "$q" -eq 1 ]; then
+		echo "cf-dns: Value parameter not been received"
+	exit 1
+	fi
+fi
+}
+
+#check if mail contains '@'
+function check_email(){
+			email_temp_var="$1"
+			shtrudels="${email_temp_var//[^@]}"	# checking amount of '@' in credentials string
+			if [ "${#shtrudels}" == 1 ]; then	#if '@' exists means correct email format
+			#if mail has shtrudel 1 exactly, set it to email field
+				email="$1"
+			else
+				if [ "$q" -eq 0 ]; then		# not in quite mode
+					echo "cf-dns: Credentials do not contain an email component	"
+				fi
+				exit 1
+			fi
+}
+
+
+
+# check correct format of credentials i.ex : my@mail.com:apikey
+function check_creds(){
+		tempvar="$1"	
+		separators="${tempvar//[^:]}"	# checking amount of ':' in credentials string
+		
+		if [ "${#separators}" == 1 ]; then
+			#if have exactly 1 ':' delimiter, set key to apikey variable
+			apikey="${1#*:}"			
+			email_check_var="${1%%:*}"
+			#check email component '@' in email adress
+			check_email "$email_check_var"		
+		elif [ "${#separators}" == 0 ]; then
+			echo "cf-dns: credentials do not contain an API component"
+			exit 1
+		else			
+			if [ "$q" -eq 0 ]; then		# not in quite mode
+				echo "cf-dns: incorrect CloudFlare credentials format, correct format :
+				test@noexec.org:xxxxxxxxx-real-api-key-here-xxxxxxxxx"
+			fi
+			exit 1
+		fi
+}
+
+function credentials_analyzation(){
+		# if were selected -c operator, check it's parameters correctness
+		if [ "$c" -eq 1 ]; then
+				#run function to check correct credentials
+				check_creds "$received_creds"
+		#check if exists $creds in global environment, if has, check correctness of credentials
+		elif ! [ -z "$creds" ]; then
+				check_creds "$creds"
+		else
+			if [ "$q" -eq 0 ]; then		# not in quite mode
+				echo cf-dns: CloudFlare credentials not specified
+			fi
+				exit 1
+		fi
+}
+
+# function checks if type were rceived from user
+function check_type(){
+		if [ -z "$type" ]; then
+		#cf-dns: DNS entry type not specified
+			if [ "$q" -eq 0 ]; then		# not in quite mode
+				echo cf-dns: DNS entry type not specified
+			fi
+			exit 1
+		fi
+}
+
+# cehck if there 1 or 2 dots in adress ( second or third level domain
+function check_domain()
+{
+	    separators="${1//[^.]}"	#checking amount of dots in domain name (received parameter)
+		if [ "${#separators}" == 1 ]; then
+			prime_domain="$1"
+		elif [ "${#separators}" == 2 ]; then
+			prime_domain="${1#*.}"
+		else
+			if [ "$q" -eq 0 ]; then		# not in quite mode
+				echo cf-dns: Subdomain does not look right	
+				fi
+			exit 1
+		fi
+}
+
+function get_zoneID(){
+		zoneID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones"\
+		     -H "Content-Type:application/json"\
+		     -H "X-Auth-Key:"$apikey""\
+		     -H "X-Auth-Email:"$email"" | jq -r ".result[0].id")
+		if [ "$zoneID" == null ]; then
+			if [ "$q" -eq 0 ]; then		# not in quite mode
+				echo cf-dns: could not retrieve zone ID, probably wrong domain
+				fi
+			exit 1 
+		fi
+	}
+
+function get_record(){
+	record=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/"${zoneID}"/dns_records?type="$type"&name="$1"" \
+				 -H "X-Auth-Email:"$email"" \
+				 -H "X-Auth-Key:"$apikey"" \
+				 -H "Content-Type: application/json" )	# for receiving only ip use 'jq -r ".result[0].content"'
+		 
+	
+}
+# function to retrieve ip for received domain name
+function get_data(){
+
+		check_type # check if type received from user		
+		check_domain "$1" # check amount of dots in domain
+		get_zoneID # receive zone ID
+		get_record "$1" # receive record
+		
+		if [ $(jq -r ".result[0].id" <<< "$record") == null ]; then
+			if [ "$q" -eq 0 ]; then		# not in quite mode
+				echo "cf-dns: DNS entry not found" 
+				exit 1
+			fi
+		else
+			echo  $(jq -r ".result[0].content" <<< "$record")
+		fi
+}
+
+# create new dns record with received parameters
+function create_record(){
+curl -s -X POST "https://api.cloudflare.com/client/v4/zones/"$zoneID"/dns_records" \
+     -H "X-Auth-Email: "$email"" \
+     -H "X-Auth-Key: "$apikey"" \
+     -H "Content-Type: application/json" \
+     --data "{\"type\":\""$type"\",\"name\":\""$1"\",\"content\":\""$2"\",\"ttl\":1,\"proxied\":false}" 1> /dev/null
+	 
+}
+
+		
+# update existing dns record, or create new
+function update_record(){
+
+		check_type # check if type received from user		
+		check_domain "$1" # check amount of dots in domain
+		get_zoneID # receive zone ID
+		get_record $1 # receive record
+	
+	# if record with this name not extst, run function to create new one and exit in the end
+	if  [ $(jq -r ".result[0].id" <<< $record) == null ]; then
+		echo Creating new Entry
+		create_record $1 $2	# run function
+		exit 0
+	fi
+	
+	ID=$(jq -r ".result[0].id" <<< "$record")
+	echo Updating existing entry
+	error_code=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/"${zoneID}"/dns_records/"$ID"" \
+			 -H "X-Auth-Email: "$email"" \
+			 -H "X-Auth-Key: "$apikey"" \
+			 -H "Content-Type: application/json" \
+			 --data "{\"type\":\""${type}"\",\"name\":\""$1"\",\"content\":\""$2"\",\"ttl\":1,\"proxied\":false} " | jq -r ".errors[0]".message)
+	if [ "$error_code" == null ]; then
+		echo Existing domain \""$1"\" been updated with value \""$2"\"
+	else
+		if [ "$q" -eq 0 ]; then		# not in quite mode
+			echo Problem with one of parameters, error \""$error_code"\" been received from server
+		fi
+		exit 1
+	fi
+
+}
+
+
+while [ "$1" != "--" ]; do
+    case "$1" in
+        -h|--help)
+            h=1
+            ;;
+        -q|--quiet)
+            q=1
+            ;;
+        -c|--credentials)
+            received_creds="$2"
+            shift
+			c=1
+            ;;
+        -g|--get)
+            get_domain="$2"
+            g=1
+            shift
+            ;;
+        -t|--type)
+            type=$(awk '{print toupper($0)}' <<< "$2") # if received parameter in lowercase make it uppercase
+			t=1
+            shift
+            ;;
+        -u|--update)
+            update_name="$2"
+			u=1
+            shift
+            ;;
+        -v|--value)
+            update_value="$2"
+			v=1
+            shift
+            ;;
+		*)
+			echo Unknown parameter
+			exit 1
+            ;;
+    esac
+    shift
+	
+done
+if ! [ -z "$2" ]; then
+	echo "cf-dns: unknown extra arguments : "$2""
+	exit 1
+fi
+# Synopsis
+if [ "$h" -eq 1 ];then
+echo "Manipulate CloudFlare DNS entries.
+	cf-dns -h
+		Show this synopsis.
+		
+	cf-dns [-q|--quiet] [-c|--credentials <email>:<apikey>] -g|--get <subdomain> -t|--type <type>
+		Print contents of all matching DNS entries of given type for a domain.
+		
+	cf-dns [-q|--quiet] [-c|--credentials <email>:<apikey>] -u|--update <subdomain> -t|--type <type>
+		Set or update contents of DNS entry of given type for a domain.
+		This command assumes that there is at most one such entry.
+		
+	CF_CREDENTIALS environment variable may be used instead of -c|--credentials switch."
+    exit
+fi
+
+credentials_analyzation	# run function to setup email and apikey for future work
+
+if [ "$g" == 1 ] ; then
+	if [ "$u" == 1 ]; then
+    	if [ "$q" == 0 ]; then		# not in quite mode
+			echo "Can't get and update at the same time"
+		fi
+    	exit 1
+	fi
+	    #run function for getting information
+	    get_data "$get_domain"
+		exit 
+fi
+
+if  [ "$u" == 1 ]; then
+	check_value		# check if value from user been received
+	update_record "$update_name" "$update_value"	# run function to update or create new DNS record
+fi
+
+ 

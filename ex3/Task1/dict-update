@@ -1,0 +1,122 @@
+#!/bin/bash
+
+#Paramater Switches:
+#----
+
+h=0 # Help option was activated, will show synopsis
+q=0 # Quiet option was activated, will not show errors
+w=0 # Word was found
+d=0 # Dict supplied
+t=0 # translation supplied
+error=0 # Error exit status
+dictionary="$DICTIONARY"	 #default dictionary if -d was not provided is $DICTIONARY
+path="${0%/*}"
+
+##Using getopt to convert paramaters appropriately:
+
+
+OPT=$(getopt -n "dict-lookup" -o "h,q,w:,d:,t:" -l "help,quiet,word:,dict:,trans:" -- "$@")
+eval set -- "$OPT"
+
+while [ $1 != "--" ] ; do
+	case "$1" in 
+		-h|--help)
+			h=1
+			;;
+
+		-q|--quiet)
+			q=1
+			;;
+
+		-w|--word)
+			w=1
+			word="$2"
+			shift
+			;;
+
+		-d|--dict)
+			d=1
+			dictionary="$path"/"$2"
+			shift
+			;;
+		-t|--trans)
+			t=1
+			translation="$2"
+			shift
+			;;
+	esac
+	shift
+done
+
+#check if there are no extra unknown argument after -- in getopt output
+if ! [ -z "$2" ]; then 
+	echo "dict-update: unknown extra arguments"
+	exit 1
+fi
+
+# If Chosen to see a synopsis prints it and exits:
+
+if [ "$h" -eq 1 ]; then
+	echo   "Usage:
+-------
+dict-update [OPTION...] [FILE...]
+  Change a translation of a word in the dictionary.
+
+Help Options:
+-------------
+  -h ,--help    Show help options
+Application Options:
+--------------------
+  -q ,--quiet		Quiet run
+  -w ,--word <param>	A word param to search
+  -d ,--dict <param>	A dictionary input(global env DICTIONARY as default)
+  		-in case of filename that contains spaces or special symbols, use ' ' , i.ex : 'my file!' as dictionary parameter
+  -t ,--trans <param>	A new translation to the word
+
+Examples:
+---------
+  dict-update -q -d dict -w dog -t new	Change dog's translation in dict dictionary to new. If dog doesn't exist add him and the translation to the end of the dictionary(error is not shown if dict is inaccessible).
+  dict-update -h			Output a synopsis. 
+  dict-update -w dog -qh 		Output a synopsis."
+
+	exit 0
+fi
+
+if [ $w -eq 0 ]||[ -z "$word" ]; then
+	echo "Word must be provided to search for in the dictionary (No '' : blank translation)"
+	exit 1
+fi
+
+if [ $t -eq 0 ]||[ -z "$translation" ]; then
+	echo "Translation must be provided (No '' : blank translation)"
+	exit 1
+fi
+
+if [ $d -eq 0 ] && [ -z "$dictionary" ]; then
+	echo "No dictionary provided"
+	echo "Dictionary must be provided as an environment variable or as a paramter"
+	exit 1
+fi
+
+
+
+replace=""${word}":"${translation}""
+grep "^${word}:" "$dictionary" &>/dev/null 
+error="$?"
+
+if [ "$q" -eq 1 ] && [ "$error" -eq 2 ]; then
+	exit "$error"
+else
+	if [ "$error" -eq 1 ]; then
+		echo "${replace}" >> "${dictionary}"
+		exit 0
+	fi
+
+	if [ "$error" -eq 2 ]; then
+		echo "Dictionary: \""${dictionary}"\" was not found"
+		exit "$error"
+	fi
+	
+	sed -i 's/^'"${word}:"'.*/'"${replace}"'/' "${dictionary}"
+fi
+

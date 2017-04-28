@@ -1,0 +1,74 @@
+#!/bin/bash
+set -e
+#arguments for the script
+h=0 #synposis 0/1
+q=0 #quite 0/1
+f=0 #file 0/1
+minus=0 #'--' as argument 0/1
+unexptected=0 #bad arguments 0/1
+
+#runs on the arguments
+while [ $# != 0 ]; do
+	if [ "$1" = "-h" ] && [ "$minus" = "0" ]; then
+		h=1
+		break
+	elif [ "$1" = "-q" ] && [ "$minus" = "0" ]; then
+		q=1
+	elif [ "$minus" = "0" ] && ( [ "$1" = "-qh" ] || [ "$1" = "-hq" ] ); then
+		h=1
+		q=1
+		break
+	elif [ "$1" = "--" ] && [ "$minus" = "0" ]; then
+		minus=1
+	elif [ "$f" = 0 ]; then
+		f=1
+		file="$1"
+	else
+		unexpected=1
+	fi
+	shift
+done
+
+if [ "$h" = 1 ]; then
+echo "Usage:
+  demo [OPTION...] [FILE]
+  Concatenate FILE to standard output.
+
+Help Options:
+  -h				Show help options
+Application Options:
+  -q				Quite run
+Errors:
+  Exit Status:			Meaning:
+  0				Script runs correctly
+  1				Error accessing the file
+  66				No file as argument
+  77				Unexpected arguments
+Examples:
+  demo -q f 	Output f's contents(error is not shown if file is inaccessible).
+  demo -h f 	Output a synopsis.	
+  demo file -qh Output a synopsis.
+  demo f 	Output f's contents."
+	exit
+fi
+if [ "$unexpected" = "1" ]; then
+	if [ "$q" = "1" ]; then
+		exit 77
+	else
+		echo "Unexpected paramaters!"
+		exit 77
+	fi
+fi
+if [ "$f" = "0" ]; then
+	if [ "$q" = "1" ]; then
+		exit 66
+	else
+		echo "No file specificated!"
+		exit 66
+	fi
+fi			
+if [ "$q" = "1" ]; then
+	cat 2>/dev/null < "$file" 
+else
+	cat < "$file"
+fi

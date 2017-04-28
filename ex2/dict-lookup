@@ -1,0 +1,171 @@
+#!/bin/bash
+
+#Paramater Switches:
+#-------------------
+h=0 # Help option was activated, will show synopsis
+q=0 # Quiet option was activated, will not show errors
+w=0 # Word was found
+a=0 # Too many arguments were passed
+d=0 # Dict supplied
+error=0 # Error exit status
+dictionary=$DICTIONARY  #default dictionary if -d was not provided is $DICTIONARY
+
+while [ $# -ne 0 ] ; do
+	#checking the argument. only the given options(hqwd or --) no word and dictionary input in  the same argument(wd,dw) and no more than one letter of option.
+	if [ ! $(grep '^\-[hqwd]\{1,3\}$\|^\--'$ <<< "$1") ] || [ $(grep -E 'w.*d|d.*w' <<< "$1") ] || [ $(grep 'w.*w\|h.*h\|d.*d\|q.*q' <<< "$1") ]; then
+  	#incase the argument is bad but good enough for quiet option, turn it on
+  		if [ $(grep &>/dev/null q <<< "$1") ] && [ ! $(grep 'w.*w\|h.*h\|d.*d\|q.*q' <<< "$1") ]; then
+   			q=1
+  		fi
+  	errormessage="Unexpected Arguments"
+  	error=66
+ 	fi
+#checking for help option in the argument
+if $(grep &>/dev/null h <<< "$1") && [ $error -eq 0 ]; then
+	h=1
+	break
+fi
+	#checking for quiet option in the argument
+	if $(grep &>/dev/null q <<< "$1") && [ $error -eq 0 ]; then
+	q=1
+fi
+if  [ "$1" = "--" ] && [ $# -ne 1 ] ;then
+	errormessage="Unexpected Arguments"
+	error=66
+elif $(grep &>/dev/null w <<< "$1") && [ $error -eq 0 ] ;then
+
+	if [ $w -eq 1 ];then
+		#error
+		error=11
+		errormessage="Only one word can be looked up"
+		break
+	fi
+
+  	w=1
+  	shift
+
+  	if [ $# -eq 0 ];then
+   		#error
+   		error=22
+   		errormessage="Word must be provided after -w"
+   		break
+  	fi
+
+  	word="$1"
+  
+	elif $(grep &>/dev/null d <<< "$1") && [ $error -eq 0 ] ;then
+
+		if [ $d -eq 1 ] ;then
+			#error
+			error=33
+			errormessage="Only one dictionary can be provided"
+			break
+		fi
+
+  		d=1
+  		shift
+
+  		if [ $# -eq 0 ];then
+   			#error
+   			error=44
+   			errormessage="Dictionary must be provided after -d"
+   			break
+  		fi
+
+  		dictionary="$1"
+
+ 	fi
+
+ 	shift
+done
+
+#Shows synopsis only 
+if [ $h -eq 1 ]; then
+	echo   "Usage:
+-------
+  dict-lookup [OPTION...] [FILE...]
+  Concatenate FILE to standard output.
+
+Help Options:
+-------------
+  -h     Show help options
+Application Options:
+--------------------
+  -q     Quiet run
+  -w <param>  A word param to search
+  -d <param> A dictionary input(global env as default)
+
+Exit status:
+------------
+	 0 - Succesful
+	 1 - Error from grep 
+	 2 - Dictionary was not found
+	 11 - Only one word can be supplied
+	 22 - Word must be supplied after -w
+	 23 - Word must be supplied with -w flag
+	 33 - Only one dictionary can be supplied
+	 44 - Dictionary must be supplied after -d
+	 55 - Dictionary was not supplied at all
+	 66 - Unexpected Arguements
+Examples:
+---------
+dict-lookup -q -d dict -w dog	Output dog's translation from dict dictionary(error is not shown if dict is inaccessible or dog wasn't found).
+dict-lookup -h			Output a synopsis. 
+dict-lookup -w dog -qh		Output a synopsis."
+
+#Checking for errors:
+
+elif [ $error -ne 0 ]; then
+
+	if [ $q -eq 0 ]; then
+		echo "$errormessage"
+	fi
+
+	exit $error
+
+
+else
+
+
+	#First checking if Dictionary was supplied either by user or as env variable:
+
+	if [ $d -eq 0 ] && [ "$dictionary" = "" ]; then
+
+		if [ $q -eq 0 ]; then
+			echo "Dictionary must be supplied"
+		fi
+
+		exit 55
+	fi
+	if [ $w -eq 0 ]; then 
+		if [ $q -eq 0 ]; then
+			echo "Word must be supplied with -w flag"
+		fi
+		exit 23
+	fi
+	#Running grep to get its' error message:
+
+	grep "^${word}:" $dictionary &>/dev/null 
+	error=$?
+
+	if [ $q -eq 1 ]; then
+ 		grep "^${word}:" $dictionary 2>/dev/null | cut -d ":" -f2 2>/dev/null
+		exit $error
+	else
+
+
+		if [ $error -eq 1 ]; then
+			echo "Word: ${word} was not found in dictionary: ${dictionary}"
+			exit $error
+		fi
+
+		if [ $error -eq 2 ]; then
+			echo "Dictionary: ${dictionary} was not found"
+			exit $error
+		fi
+
+		result=$( grep "^${word}:" $dictionary )
+		echo $result | cut -d ":" -f2
+	fi
+
+fi

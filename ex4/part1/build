@@ -31,29 +31,34 @@ function synopsis {
 function compile {
 	#need to check here for timestamp on helper
 	if [ ! -e "helper.o" ];then
+		echo "helper.o not found, compiling it from source"
 		gcc -c helper.c $compilerOptions
 	fi
 
 	if [ -e "helper.o" ];then 
+		echo "helper.o found, archiving it to library"
 		ar cr libhelper.a helper.o
-		echo "lol"
 	fi
 
 	if $(grep -q "\-DVERBOSE_LOGGING" <<< "$compilerOptions");then
+		echo "Verbose Logging activated"
 		gcc -c main.c   $compilerOptions
 	else
+		echo "Verbose Logging disabled"
 		gcc -c main.c   $verboseDefault $compilerOptions
 	fi
 	
 }
 
 function link {
-	echo "linking $linkingOptions"
-	gcc -o main main.o libhelper.a -lm
+	#Converting linking options to proper form for passing to linker:
+	echo "Linking Objects and Building Executable"
+	linkerOptions=$(echo "$linkerOptions" | tr ' ' ',')
+	gcc -Wl,$linkerOptions -o main main.o libhelper.a  -lm
 }
 
 function stripExec {
-	echo "stripping"
+	echo "Stripping Executable"
 	strip "main"
 }
 
@@ -66,13 +71,11 @@ eval set -- "$OPT"
 while [ "$1" != "--" ]; do
 	case "$1" in 
 	-c|--compiler)
-		echo "compiler"
 		COMPILER=1
 		compilerOptions="$2"
 		shift
 		;;
 	-l|--linker)
-		echo "linker"
 		LINKER=1
 		linkerOptions="$2"
 		shift

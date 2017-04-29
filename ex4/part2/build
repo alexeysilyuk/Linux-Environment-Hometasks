@@ -1,0 +1,71 @@
+#!/bin/bash
+
+function synopsis {
+	echo "Compiles a NASM program into an executable.
+	
+		
+	Switches
+
+-h				Shows Synopsis
+-c --clean	Cleans build
+-d --deps	Shows files dependencies
+
+	Usage Examples:
+
+	build [-h|--help]
+		Show this synopsis.
+		
+	build [-c|--clean]
+		Cleans the build deleting all generated files
+	build [-d|--deps]
+		Shows files dependencies
+	"
+	exit
+}
+
+function compile {
+	
+}
+
+function link {
+	
+}
+
+function deps{
+
+}
+
+function clean{
+
+}
+
+
+
+OPT=$(getopt -n "builder" -o "c,h,d" -l "clean,help,deps" -- "$@")
+
+
+eval set -- "$OPT"
+
+
+while [ "$1" != "--" ]; do
+	case "$1" in 
+	-d|--deps)
+		deps
+		;;
+	-h|--help)
+		synopsis
+		;;
+	-c|--clean)
+		clean
+		;;
+	*)
+		echo "Invalid Arguments"
+		exit 1
+		;;
+	esac
+
+	shift
+done
+
+compile
+link

@@ -4,7 +4,6 @@
 
 int main(){
   float a,b,c;
-  float d,root1,root2;  
  
  
   printf("Enter a, b and c of quadratic equation:");

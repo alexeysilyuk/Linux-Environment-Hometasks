@@ -3,16 +3,53 @@
 #include "helper.h"
 
 
-float getDelta(float a, float b, float c){
-	float delta = b * b - 4 * a * c;
+void loggingFunction(char mod,float root1,float root2, float im1, float im2){
+	switch(mod){
+	case 'd':
+		if (VERBOSE_LOGGING){
+			printf("Calculating Delta of Equation\n");
+			printf("Delta of Equation is:\n");
+			printf("%.3f\n",root1);
+		}
+		break;
 
-	if (VERBOSE_LOGGING) {
-		printf("Delta of Equation is:\n");
-		printf("%.3f\n",delta);
+
+	case 'c':
+		if (VERBOSE_LOGGING){
+			printf("Roots are complex number.\n");
+			printf("Calculating complex roots of Equation\n");
+			printf("Roots of quadratic equation are: \n");
+		}
+		printf("%.3f%+.3fi \n",root1,im1);
+		printf("%.3f%+.3fi \n",root2,im2);
+		break;
+
+	case '1':
+		if (VERBOSE_LOGGING){
+			printf("Both roots are equal.\n");
+			printf("Calculating root of Equation\n");
+	   		printf("Root of quadratic equation is\n");
+		}
+		printf("%.3f \n", root1);
+		break;
+
+	case '2':
+		if (VERBOSE_LOGGING){
+			printf("Roots are real numbers.\n");
+			printf("Calculating real roots of Equation\n");
+			printf("Roots of quadratic equation are: \n");
+		}
+		printf("%.3f \n", root1);
+		printf("%.3f \n", root2);
+		break;
+		
+	default:
+		printf("Error\n");
+		
 	}
 
-	return delta;
-}	
+}
+
 
 void solveEquation(float a, float b, float c){
 	float d = getDelta(a,b,c);
@@ -21,38 +58,35 @@ void solveEquation(float a, float b, float c){
 	else solveTwoRoots(a,b,c,d);
 }
 
-void solveComplex(float a, float b , float c, float d){
-	if (VERBOSE_LOGGING){
-	printf("Roots are complex number.\n");
-	printf("Roots of quadratic equation are: \n");
-	}
 
-	printf("Root 1 : %.3f%+.3fi \n",-b/(2*a),sqrt(-d)/(2*a));
-	printf("Root 2 : , %.3f%+.3fi \n",-b/(2*a),-sqrt(-d)/(2*a));
+float getDelta(float a, float b, float c){
+	float delta = b * b - 4 * a * c;
+	loggingFunction('d',delta,0,0,0);
+	return delta;
+}	
+
+
+
+void solveComplex(float a, float b , float c, float d){
+	float root1 =-b/(2*a);
+	float root2 = root1;
+	float im1 = sqrt(-d)/(2*a);
+	float im2 = -im1;
+
+	loggingFunction('c',root1,root2,im1,im2);
 	return;
 }
 
 void solveOneRoot(float a , float b, float c){
    	float root = -b /(2* a);
 
-	if (VERBOSE_LOGGING){
-	printf("Both roots are equal.\n");
-   	printf("Root of quadratic equation is\n");
-	}
-	
-	printf("Root: %.3f \n" , root);
+	loggingFunction('1',root,root,0,0);
 	return;
 }
 
 void solveTwoRoots(float a, float b, float c, float d){
 	float root1 = ( -b + sqrt(d)) / (2* a);
 	float root2 = ( -b - sqrt(d)) / (2* a);
-
-	if (VERBOSE_LOGGING){
-	printf("Roots are real numbers.\n");
-	printf("Roots of quadratic equation are: \n");
-	}
-
-	printf("Root 1 : %.3f \n ", root1);
-	printf("Root 2 : %.3f \n ", root2);
-}
+	loggingFunction('2',root1,root2,0,0);
+	return;
+}	

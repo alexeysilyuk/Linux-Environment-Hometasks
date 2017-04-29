@@ -2,6 +2,9 @@
 #include <math.h>
 #include "helper.h"
 
+#ifndef VERBOSE_LOGGING
+#define VERBOSE_LOGGING 0
+#endif
 
 void loggingFunction(char mod,float root1,float root2, float im1, float im2){
 	switch(mod){

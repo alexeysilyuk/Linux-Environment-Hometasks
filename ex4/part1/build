@@ -7,24 +7,49 @@ verboseDefault="-DVERBOSE_LOGGING=0"
 linkerOptions=""
 
 function synopsis {
-	echo  "synopsis"
+	echo "Compiles a program into an executable.
+	
+		
+	Switches
+
+-h				Shows Synopsis
+-c --compiler	[OPTION]	Insert compiler options ("" for none)
+-l --linker	[OPTION]	Insert linker options ("" for none)
+-s --strip			Strip the executable of debugging information
+
+	Usage Examples:
+
+	build -h
+		Show this synopsis.
+		
+	build [-c|--compiler OPTION] [-l|--linker OPTION]
+		Build an executable in steps, passing compiler and linking options
+	"
 	exit
 }
 
 function compile {
-	echo "$compilerOptions"
+	#need to check here for timestamp on helper
+	if [ ! -e "helper.o" ];then
+		gcc -c helper.c $compilerOptions
+	fi
+
+	if [ -e "helper.o" ];then 
+		ar cr libhelper.a helper.o
+		echo "lol"
+	fi
+
 	if $(grep -q "\-DVERBOSE_LOGGING" <<< "$compilerOptions");then
-		echo "entered if"
-		gcc -c main.c helper.c  $compilerOptions
+		gcc -c main.c   $compilerOptions
 	else
-		gcc -c main.c helper.c $verboseDefault $compilerOptions
+		gcc -c main.c   $verboseDefault $compilerOptions
 	fi
 	
 }
 
 function link {
 	echo "linking $linkingOptions"
-	gcc -o main main.o helper.o -lm
+	gcc -o main main.o libhelper.a -lm
 }
 
 function stripExec {
@@ -37,7 +62,6 @@ OPT=$(getopt -n "builder" -o "c:,l:,h,s" -l "compiler:,linker:,help,strip" -- "$
 
 eval set -- "$OPT"
 
-echo "$@"
 
 while [ "$1" != "--" ]; do
 	case "$1" in 

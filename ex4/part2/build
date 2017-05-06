@@ -1,4 +1,10 @@
-#!/bin/bash
+#!/bin/bash -e
+
+COMPILER=0
+LINKER=0
+STRIP=0
+compilerOptions=""
+linkerOptions=""
 
 function synopsis {
 	echo "Compiles a NASM program into an executable.
@@ -6,9 +12,12 @@ function synopsis {
 		
 	Switches
 
--h				Shows Synopsis
--c --clean	Cleans build
--d --deps	Shows files dependencies
+-h 	--help				Shows Synopsis
+	--clean				Cleans build
+-d 	--deps				Shows files dependencies
+	--compiler	[OPTION]	Insert compiler options ("" for none)
+-l 	--linker	[OPTION]	Insert linker options ("" for none)
+-s 	--strip			Strip the executable of debugging information
 
 	Usage Examples:
 
@@ -24,39 +33,105 @@ function synopsis {
 }
 
 function compile {
+
 	
+	if [ ! -e "obj/delta.o" ] || [ "src/delta.asm" -nt "obj/delta.o" ]; then
+
+		#####################################################
+	fi
+	
+	if [ ! -e "obj/helper.o" ] || [ "src/helper.c" -nt "obj/helper.o" ] || [ "src/helper.h" -nt "obj/helper.o" ];then
+		echo "helper.o not found \ outdated, compiling it from source"
+		gcc -c helper.c $compilerOptions
+	fi
+
+	if [ ! -e "lib/libhelper.so" ] || [ "obj/helper.o" -nt "lib/libhelper.so" ] ;then 
+
+		#####################################################
+		echo "libhelper.a not found \ outdated, archiving it"
+		ar cr libhelper.a helper.o
+	fi
+
+	if [ ! -e "obj/main.o" ] || [ "src/main.c" -nt "obj/main.o" ]; then
+		echo "main.o not found \ outdated, archiving it"
+		gcc -c -o obj/main.o main.c   $compilerOptions
+	fi
 }
 
 function link {
+	#Converting linking options to proper form for passing to linker:
+
+	linkerOptions=$(echo "$linkerOptions" | tr ' ' ',')
 	
+	if [ ! -e "main.o" ] || [ ! -e "libhelper.a" ];then
+		echo "Cannot link build, please compile first (--compile [OPTION])"
+		exit 1
+	fi
+
+	if [ ! -e "main" ] || [ "main.o" -nt "main" ] || [ "libehelper.a" -nt "main" ];then
+
+		echo "Linking Objects and Building Executable"
+		if [ "$linkerOptions" == "" ];then
+			gcc  -o main main.o libhelper.a  -lm
+		else
+			gcc -Wl,$linkerOptions -o main main.o libhelper.a  -lm
+		fi
+
+	else
+	
+		echo "Executable is already up to date"
+	
+	fi
 }
 
 function deps{
-
+	echo "Printing dependencies"
+	
 }
 
 function clean{
-
+	echo "Cleaning generated files"
+	rm -f "obj/*" "lib/*" "bin/*"
+	
 }
 
 
+function strip{
+	echo "Stripping Executable"
+		strip "main"
+}
 
-OPT=$(getopt -n "builder" -o "c,h,d" -l "clean,help,deps" -- "$@")
+OPT=$(getopt -n "builder" -o "h,d,l,s" -l "clean,help,deps,compiler:,linker:,strip" -- "$@")
 
 
 eval set -- "$OPT"
 
 
 while [ "$1" != "--" ]; do
-	case "$1" in 
+	case "$1" in
+	-l|--linker)
+		
 	-d|--deps)
 		deps
 		;;
 	-h|--help)
 		synopsis
 		;;
-	-c|--clean)
+	--clean)
 		clean
+		;;
+	--compiler)
+		COMPILER=1
+		compilerOptions="$2"
+		shift
+		;;
+	-l|--linker)
+		LINKER=1
+		linkerOptions="$2"
+		shift
+		;;
+	-s|--strip)
+		STRIP=1
 		;;
 	*)
 		echo "Invalid Arguments"
@@ -67,5 +142,14 @@ while [ "$1" != "--" ]; do
 	shift
 done
 
-compile
-link
+if [ $COMPILER -eq 1 ] ;then
+	compile
+fi
+
+if [ $LINKER -eq 1 ] ; then
+	link
+fi
+
+if [ $STRIP -eq 1 ] ;then
+	stripExec
+fi

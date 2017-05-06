@@ -3,6 +3,7 @@
 COMPILER=0
 LINKER=0
 STRIP=0
+DEPS=0
 compilerOptions=""
 linkerOptions=""
 
@@ -37,24 +38,24 @@ function compile {
 	
 	if [ ! -e "obj/delta.o" ] || [ "src/delta.asm" -nt "obj/delta.o" ]; then
 
-		#####################################################
+
+		nasm -felf64 -o "obj/delta.o" "src/delta.asm"
 	fi
 	
-	if [ ! -e "obj/helper.o" ] || [ "src/helper.c" -nt "obj/helper.o" ] || [ "src/helper.h" -nt "obj/helper.o" ];then
+	if [ ! -e "obj/helper.o" ] || [ "obj/delta.o" -nt "obj/helper.o" ] || [ "src/helper.c" -nt "obj/helper.o" ] || [ "src/helper.h" -nt "obj/helper.o" ];then
 		echo "helper.o not found \ outdated, compiling it from source"
-		gcc -c helper.c $compilerOptions
+		gcc -c -shared -fpic -o "obj/helper.o" "src/helper.c" $compilerOptions
 	fi
 
 	if [ ! -e "lib/libhelper.so" ] || [ "obj/helper.o" -nt "lib/libhelper.so" ] ;then 
 
-		#####################################################
-		echo "libhelper.a not found \ outdated, archiving it"
-		ar cr libhelper.a helper.o
+		echo "libhelper.so not found \ outdated, creating shared library"
+		gcc -shared -fpic -o "lib/libhelper.so" "obj/helper.o" "obj/delta.o" $compilerOptions
 	fi
 
 	if [ ! -e "obj/main.o" ] || [ "src/main.c" -nt "obj/main.o" ]; then
-		echo "main.o not found \ outdated, archiving it"
-		gcc -c -o obj/main.o main.c   $compilerOptions
+		echo "main.o not found \ outdated, compiling main.c"
+		gcc -shared -fpic -c -o "obj/main.o" "src/main.c"   $compilerOptions
 	fi
 }
 
@@ -63,19 +64,17 @@ function link {
 
 	linkerOptions=$(echo "$linkerOptions" | tr ' ' ',')
 	
-	if [ ! -e "main.o" ] || [ ! -e "libhelper.a" ];then
+	if [ ! -e "obj/main.o" ] || [ ! -e "lib/libhelper.so" ];then
 		echo "Cannot link build, please compile first (--compile [OPTION])"
 		exit 1
 	fi
 
-	if [ ! -e "main" ] || [ "main.o" -nt "main" ] || [ "libehelper.a" -nt "main" ];then
+	if [ ! -e "bin/main" ] || [ "obj/main.o" -nt "bin/main" ] || [ "lib/libhelper.so" -nt "bin/main" ];then
 
 		echo "Linking Objects and Building Executable"
-		if [ "$linkerOptions" == "" ];then
-			gcc  -o main main.o libhelper.a  -lm
-		else
-			gcc -Wl,$linkerOptions -o main main.o libhelper.a  -lm
-		fi
+		gcc -Wl,-rpath="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/lib" $linkerOptions -L"${0%/*}/lib"   -o "bin/main" "obj/main.o" -lhelper -lm
+		echo "Executable created  @bin/main"
+
 
 	else
 	
@@ -84,21 +83,28 @@ function link {
 	fi
 }
 
-function deps{
+function deps {
 	echo "Printing dependencies"
-	
+	gcc -MM "src/main.c"
+	gcc -MM "src/helper.c"
+	gcc -MM "src/delta.h"
 }
 
-function clean{
+function clean {
 	echo "Cleaning generated files"
-	rm -f "obj/*" "lib/*" "bin/*"
+	rm -f obj/* lib/* bin/*
 	
 }
 
 
-function strip{
+function strip {
+	if [ ! -e src/main ]; then
+		echo "Executable does not exist, Please Compile/Link" 
+		exit 1
+	fi
+
 	echo "Stripping Executable"
-		strip "main"
+		strip "bin/main"
 }
 
 OPT=$(getopt -n "builder" -o "h,d,l,s" -l "clean,help,deps,compiler:,linker:,strip" -- "$@")
@@ -109,10 +115,8 @@ eval set -- "$OPT"
 
 while [ "$1" != "--" ]; do
 	case "$1" in
-	-l|--linker)
-		
 	-d|--deps)
-		deps
+		DEPS=1
 		;;
 	-h|--help)
 		synopsis
@@ -148,6 +152,11 @@ fi
 
 if [ $LINKER -eq 1 ] ; then
 	link
+fi
+
+
+if [ $DEPS -eq 1 ] ; then
+	deps
 fi
 
 if [ $STRIP -eq 1 ] ;then

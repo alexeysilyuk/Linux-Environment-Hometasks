@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "helper.h"
-
+#include "delta.h"
 
 void loggingFunction(char mod,float root1,float root2, float im1, float im2){
 	switch(mod){

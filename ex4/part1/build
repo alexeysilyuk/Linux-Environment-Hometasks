@@ -55,10 +55,10 @@ function link {
 	
 	if [ ! -e "main.o" ] || [ ! -e "libhelper.a" ];then
 		echo "Cannot link build, please compile first (--compile [OPTION])"
-		exit(1)
+		exit 1
 	fi
 
-	if [ ! -e "main" ] || [ "main.o" -nt "main" ] || [ "libehelper.a" -nt "main" ];then
+	if [ ! -e "main" ] || [ "main.o" -nt "main" ] || [ "libhelper.a" -nt "main" ];then
 
 		echo "Linking Objects and Building Executable"
 		if [ "$linkerOptions" == "" ];then
@@ -71,11 +71,16 @@ function link {
 	
 		echo "Executable is already up to date"
 	
-
+	fi
 	
 }
 
 function stripExec {
+	if [ ! -e "main" ];then
+		echo "Executable does not exist, cannot strip it"
+		exit 1
+	fi
+
 	echo "Stripping Executable"
 	strip "main"
 }

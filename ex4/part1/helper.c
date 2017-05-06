@@ -2,46 +2,43 @@
 #include <math.h>
 #include "helper.h"
 
-#ifndef VERBOSE_LOGGING
-#define VERBOSE_LOGGING 0
-#endif
 
 void loggingFunction(char mod,float root1,float root2, float im1, float im2){
 	switch(mod){
 	case 'd':
-		if (VERBOSE_LOGGING){
-			printf("Calculating Delta of Equation\n");
-			printf("Delta of Equation is:\n");
-			printf("%.3f\n",root1);
-		}
+		#ifdef VERBOSE_LOGGING
+		printf("Calculating Delta of Equation\n");
+		printf("Delta of Equation is:\n");
+		#endif
+		printf("%.3f\n",root1);
 		break;
 
 
 	case 'c':
-		if (VERBOSE_LOGGING){
+		#ifdef VERBOSE_LOGGING
 			printf("Roots are complex number.\n");
 			printf("Calculating complex roots of Equation\n");
 			printf("Roots of quadratic equation are: \n");
-		}
+		#endif
 		printf("%.3f%+.3fi \n",root1,im1);
 		printf("%.3f%+.3fi \n",root2,im2);
 		break;
 
 	case '1':
-		if (VERBOSE_LOGGING){
+		#ifdef VERBOSE_LOGGING
 			printf("Both roots are equal.\n");
 			printf("Calculating root of Equation\n");
 	   		printf("Root of quadratic equation is\n");
-		}
+		#endif
 		printf("%.3f \n", root1);
 		break;
 
 	case '2':
-		if (VERBOSE_LOGGING){
+		#ifdef VERBOSE_LOGGING
 			printf("Roots are real numbers.\n");
 			printf("Calculating real roots of Equation\n");
 			printf("Roots of quadratic equation are: \n");
-		}
+		#endif
 		printf("%.3f \n", root1);
 		printf("%.3f \n", root2);
 		break;

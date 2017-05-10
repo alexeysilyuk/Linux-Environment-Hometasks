@@ -36,9 +36,9 @@ function synopsis {
 function compile {
 
 	
-	if [ ! -e "obj/delta.o" ] || [ "src/delta.asm" -nt "obj/delta.o" ]; then
+	if [ ! -e "obj/delta.o" ] || [ "src/delta.asm" -nt "obj/delta.o" ] || [ "src/delta.h" -nt "obj/delta.o" ]; then
 
-
+		echo "delta.o not found \ outdated, compiling it from source"
 		nasm -felf64 -o "obj/delta.o" "src/delta.asm"
 	fi
 	
